@@ -1,0 +1,66 @@
+services:
+
+  backend:
+    ports:
+      - "8000:8000"
+    environment:
+      APP_ENV: development
+      LOG_LEVEL: DEBUG
+      # Ensure stdout/stderr are flushed immediately so `docker logs` shows
+      # tracebacks and access logs in real time instead of being delayed by
+      # Python's block-buffering when stdout isn't a TTY.
+      PYTHONUNBUFFERED: "1"
+      # Send OTP/verification emails to the local Mailhog dev SMTP server
+      # (view captured mail at http://localhost:8025) instead of the
+      # localhost:1025 default, since "localhost" inside this container
+      # refers to itself, not the mailhog service.
+      SMTP_HOST: mailhog
+      SMTP_PORT: "1025"
+    depends_on:
+      - mailhog
+    volumes:
+      - ./backend:/app
+      - /app/.venv
+    command: >
+      uvicorn src.main:app
+      --host 0.0.0.0
+      --port 8000
+      --reload
+
+  frontend:
+    ports:
+      - "3000:5173"
+    environment:
+      NODE_ENV: development
+      # Inside the docker-compose network, the backend is reachable by its
+      # service name, not localhost — see frontend/vite.config.ts.
+      VITE_API_PROXY_TARGET: http://backend:8000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: npm run dev -- --host
+
+  postgres:
+    ports:
+      - "5432:5432"
+
+  redis:
+    ports:
+      - "6379:6379"
+
+  pgadmin:
+    ports:
+      - "5050:80"
+
+  mailhog:
+    image: mailhog/mailhog
+    container_name: mailhog
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge

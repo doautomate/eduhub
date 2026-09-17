@@ -1,0 +1,87 @@
+name: CI
+
+# Trigger contract (specs/014-ci-build-test-pipeline/contracts/ci-workflow-contract.md):
+# - push: runs on every branch, no branch filter (FR-001, FR-002)
+# - pull_request: filtered to PRs targeting `main`
+on:
+  push: {}
+  pull_request:
+    branches: [main]
+
+# Cancel any in-progress run for the same branch/PR when a new commit supersedes it (FR-012).
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Backend and frontend are intentionally independent jobs with no `needs:` between them,
+  # so a failure in one is never hidden or blocked by the other (FR-003, SC-004).
+  backend:
+    name: backend
+    runs-on: self-hosted
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: "Backend: build CI container image"
+        run: docker build --target ci -t backend-ci -f backend/Dockerfile backend
+
+      - name: "Backend: lint (ruff)"
+        run: docker run --rm backend-ci uv run ruff check . --output-format=github
+
+      - name: "Backend: type-check (mypy --strict)"
+        run: docker run --rm backend-ci uv run mypy --strict src --show-error-codes
+
+      - name: "Backend: unit tests (pytest)"
+        run: docker run --rm backend-ci uv run pytest --cov -v
+
+      - name: "Backend: security scan (pip-audit, bandit)"
+        run: |
+          docker run --rm backend-ci uv run pip-audit
+          docker run --rm backend-ci uv run bandit -r src
+
+      - name: "Backend: build production image"
+        run: docker build --target runtime -t backend-runtime -f backend/Dockerfile backend
+
+      - name: "Backend: job summary"
+        if: always()
+        run: |
+          echo "### Backend CI" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Step | Result |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|------|--------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| lint / type-check / tests / security-scan / build | ${{ job.status }} |" >> "$GITHUB_STEP_SUMMARY"
+
+  frontend:
+    name: frontend
+    runs-on: self-hosted
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: "Frontend: build CI container image"
+        run: docker build -t frontend-ci -f frontend/Dockerfile frontend
+
+      - name: "Frontend: lint (eslint)"
+        run: docker run --rm frontend-ci npm run lint -- --format stylish
+
+      - name: "Frontend: type-check (tsc -b)"
+        run: docker run --rm frontend-ci npx tsc -b
+
+      - name: "Frontend: unit tests (vitest)"
+        run: docker run --rm frontend-ci npm run test:coverage -- --reporter=verbose
+
+      - name: "Frontend: security scan (npm audit)"
+        run: docker run --rm frontend-ci npm audit --audit-level=high
+
+      - name: "Frontend: build"
+        run: docker run --rm frontend-ci npm run build
+
+      - name: "Frontend: job summary"
+        if: always()
+        run: |
+          echo "### Frontend CI" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Step | Result |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|------|--------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| lint / type-check / tests / security-scan / build | ${{ job.status }} |" >> "$GITHUB_STEP_SUMMARY"

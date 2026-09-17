@@ -1,0 +1,14 @@
+.git/
+**/.git/
+**/node_modules/
+**/__pycache__/
+**/*.pyc
+**/.venv/
+**/venv/
+**/dist/
+**/build/
+**/*.log*
+.env*
+**/coverage/
+**/.pytest_cache/
+**/.DS_Store

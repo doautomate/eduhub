@@ -1,0 +1,19 @@
+/*
+ * App-shell layout tokens (migrated from the retired variables.css, T014/T030). Kept
+ * in a plain (non-Tailwind-processed) stylesheet — rather than inside tailwind.css's
+ * `@theme`/`@layer` blocks — because jsdom's CSS engine does not reliably expose custom
+ * properties declared inside those constructs to `getComputedStyle()` in unit tests.
+ * The header now matches the body's background/foreground (it uses the shared
+ * `bg-background`/`text-foreground` Tailwind classes directly rather than a fixed
+ * brand color), so no separate --color-header-* tokens are needed here anymore.
+ * --header-height is still a plain custom property (half its previous value).
+ */
+:root {
+  --header-height: 3.25rem;
+  --footer-height: 2rem;
+  --footer-padding-block: 0.25rem;
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+}
