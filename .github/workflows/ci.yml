@@ -24,6 +24,24 @@ jobs:
             - name: lint backend code
               run: docker run --rm backend-ci uv run ruff check . --output-format=github
 
+            - name: "Backend: type-check (mypy --strict)"
+              run: docker run --rm backend-ci uv run mypy --strict src --show-error-codes
+
+            - name: "Backend: unit tests (pytest)"
+              run: docker run --rm backend-ci uv run pytest --cov -v
+
+            - name: "Backend: security scan (pip-audit, bandit)"
+              run: |
+                docker run --rm backend-ci uv run pip-audit
+                docker run --rm backend-ci uv run bandit -r src
+
+            - name: "Backend: job summary"
+              if: always()
+              run: |
+                echo "### Backend CI" >> "$GITHUB_STEP_SUMMARY"
+                echo "| Step | Result |" >> "$GITHUB_STEP_SUMMARY"
+                echo "|------|--------|" >> "$GITHUB_STEP_SUMMARY"
+                echo "| lint / type-check / tests / security-scan / build | ${{ job.status }} |" >> "$GITHUB_STEP_SUMMARY"
 
     frontend:
         name: Frontend Build
@@ -38,3 +56,23 @@ jobs:
 
             - name: lint frontend code
               run: docker run --rm frontend-ci npm run lint
+
+            - name: "Frontend: lint (eslint)"
+              run: docker run --rm frontend-ci npm run lint -- --format stylish
+
+            - name: "Frontend: type-check (tsc -b)"
+              run: docker run --rm frontend-ci npx tsc -b
+
+            - name: "Frontend: unit tests (vitest)"
+              run: docker run --rm frontend-ci npm run test:coverage -- --reporter=verbose
+
+            - name: "Frontend: security scan (npm audit)"
+              run: docker run --rm frontend-ci npm audit --audit-level=high
+
+            - name: "Frontend: job summary"
+              if: always()
+              run: |
+                echo "### Frontend CI" >> "$GITHUB_STEP_SUMMARY"
+                echo "| Step | Result |" >> "$GITHUB_STEP_SUMMARY"
+                echo "|------|--------|" >> "$GITHUB_STEP_SUMMARY"
+                echo "| lint / type-check / tests / security-scan / build | ${{ job.status }} |" >> "$GITHUB_STEP_SUMMARY"
