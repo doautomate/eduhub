@@ -5,6 +5,10 @@ on:
     branches: ['*']
   workflow_dispatch:
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true    
+
 jobs:
     backend:
         name: Backend Build
@@ -20,3 +24,17 @@ jobs:
             - name: lint backend code
               run: docker run --rm backend-ci uv run ruff check . --output-format=github
 
+
+    frontend:
+        name: Frontend Build
+        runs-on: self-hosted
+        timeout-minutes: 15
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v3
+
+            - name: build frontend container
+              run: docker build --target ci -t frontend-ci -f frontend/Dockerfile frontend
+
+            - name: lint frontend code
+              run: docker run --rm frontend-ci uv run eslint . --format github
