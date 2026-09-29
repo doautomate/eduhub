@@ -6,6 +6,10 @@ RUN apt-get update \
 	&& apt-get install -y --no-install-recommends ca-certificates \
 	&& rm -rf /var/lib/apt/lists/*
 
+# install uv uvx and put it under the path
+RUN pip install --no-cache-dir uv uvx
+ENV PATH="/root/.local/bin:$PATH"
+
 WORKDIR /app
 ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
