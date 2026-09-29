@@ -31,7 +31,9 @@ from src.repositories.user_repository import UserRepository
 from src.util.datetime_utils import ensure_aware
 
 _FAILURE_KEY_PREFIX = "recovery_failures:"
-_RESET_TOKEN_KEY_PREFIX = "password_reset:"
+# Redis cache-key namespace prefix, not a credential; bandit's hardcoded_password_string
+# check just pattern-matches the substring "password".
+_RESET_TOKEN_KEY_PREFIX = "password_reset:"  # nosec B105
 _REFRESH_KEY_PREFIX = "refresh:"
 _USER_REFRESH_TOKENS_KEY_PREFIX = "user_refresh_tokens:"
 _FAILURE_WINDOW_SECONDS = 15 * 60
