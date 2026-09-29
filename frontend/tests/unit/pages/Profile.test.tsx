@@ -91,6 +91,27 @@ describe("Profile page (User Story 5)", () => {
     await waitFor(() => expect(screen.getByText("Ada Lovelace")).toBeInTheDocument());
   });
 
+  it("ignores a getProfile response that resolves after the component has unmounted", async () => {
+    let resolveProfile: (value: typeof BASE_PROFILE) => void = () => {};
+    vi.spyOn(userService, "getProfile").mockImplementation(
+      () => new Promise((resolve) => { resolveProfile = resolve; }),
+    );
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { unmount } = renderProfile();
+
+    unmount();
+    resolveProfile(BASE_PROFILE);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(
+      consoleError.mock.calls.some((call) =>
+        String(call[0]).includes("Can't perform a React state update on an unmounted component"),
+      ),
+    ).toBe(false);
+    consoleError.mockRestore();
+  });
+
   it("shows an error state when the profile fails to load", async () => {
     vi.spyOn(userService, "getProfile").mockRejectedValue(new Error("network error"));
     renderProfile();

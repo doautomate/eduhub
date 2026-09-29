@@ -44,24 +44,12 @@ export default defineConfig({
         "src/main.tsx",
         "src/**/*.d.ts",
         "src/vite-env.d.ts",
-        // Empty placeholder scaffolding for not-yet-built features (items/pagination) —
-        // no logic exists in these files yet, so instrumenting them is meaningless.
-        "src/app/client.ts",
-        "src/app/interceptor.ts",
-        "src/app/v1/health.ts",
-        "src/app/v1/items.ts",
-        "src/app/v2/**",
-        "src/hooks/useApi.ts",
-        "src/hooks/usePagination.ts",
-        "src/middleware/request.ts",
-        "src/schemas/**",
-        "src/services/itemService.ts",
-        "src/types/common.ts",
-        "src/types/item.ts",
-        "src/util/dateUtils.ts",
-        "src/util/response.ts",
-        "src/util/storage.ts",
-        "src/util/validations.ts",
+        // 015-frontend-coverage-tests: the previous entries here referenced pre-refactor
+        // paths (src/app/*, src/hooks/*, src/schemas/**, src/services/*, src/types/*,
+        // src/util/*) that no longer existed after the 012-frontend-structure-cleanup move
+        // to src/shared/**, so they silently excluded nothing. The actual files they were
+        // meant to cover were confirmed genuinely empty (0 lines) and unreferenced, and have
+        // been deleted outright rather than re-added here — see specs/015-frontend-coverage-tests.
       ],
       thresholds: {
         lines: 90,

@@ -1,6 +1,6 @@
 import { describe, expect, it, afterEach, vi } from "vitest";
 import { screen, fireEvent, waitFor, render } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Routes, Route } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderWithProviders } from "../../test-utils";
 import { Login } from "../../../src/pages/Login";
@@ -135,5 +135,83 @@ describe("Login page", () => {
     const { container } = renderWithProviders(<Login />);
     await expectNoA11yViolations(container);
     delete document.documentElement.dataset.theme;
+  });
+
+  it("navigates to the home page on a successful login", async () => {
+    mockFetchOnce(200, { access_token: "tok", token_type: "bearer", expires_in: 900 });
+
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <MemoryRouter initialEntries={["/login"]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <AuthProvider>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/" element={<p>Home page</p>} />
+            </Routes>
+          </AuthProvider>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: "a@example.com" } });
+    fireEvent.change(screen.getByLabelText(/password/i), { target: { value: "Passw0rd1" } });
+    fireEvent.click(screen.getByRole("button", { name: /log in/i }));
+
+    await waitFor(() => expect(screen.getByText("Home page")).toBeInTheDocument());
+  });
+
+  describe("resend verification code", () => {
+    afterEach(() => {
+      sessionStorage.clear();
+    });
+
+    async function renderWithUnverifiedEmail() {
+      mockFetchOnce(403, {
+        detail: { detail: "Email address not verified.", reason: "EMAIL_NOT_VERIFIED" },
+      });
+      renderWithProviders(<Login />);
+
+      fireEvent.change(screen.getByLabelText(/email/i), { target: { value: "a@example.com" } });
+      fireEvent.change(screen.getByLabelText(/password/i), { target: { value: "Passw0rd1" } });
+      fireEvent.click(screen.getByRole("button", { name: /log in/i }));
+
+      await waitFor(() => expect(screen.getByTestId("resend-otp-prompt")).toBeInTheDocument());
+    }
+
+    it("shows a fallback message when no cached userId is available for the email", async () => {
+      await renderWithUnverifiedEmail();
+
+      fireEvent.click(screen.getByRole("button", { name: /resend verification code/i }));
+
+      await waitFor(() =>
+        expect(screen.getByRole("status")).toHaveTextContent(
+          /couldn't automatically resend a code/i,
+        ),
+      );
+    });
+
+    it("resends the code and navigates to /verify-otp when a cached userId is available", async () => {
+      await renderWithUnverifiedEmail();
+      sessionStorage.setItem("otp:userId:a@example.com", "user-1");
+      mockFetchOnce(202, { accepted: true });
+
+      fireEvent.click(screen.getByRole("button", { name: /resend verification code/i }));
+
+      await waitFor(() =>
+        expect(screen.getByRole("status")).toHaveTextContent(/new verification code was sent/i),
+      );
+    });
+
+    it("shows an error message when resending the code fails", async () => {
+      await renderWithUnverifiedEmail();
+      sessionStorage.setItem("otp:userId:a@example.com", "user-1");
+      vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network down")));
+
+      fireEvent.click(screen.getByRole("button", { name: /resend verification code/i }));
+
+      await waitFor(() =>
+        expect(screen.getByRole("status")).toHaveTextContent(/unable to resend the code/i),
+      );
+    });
   });
 });

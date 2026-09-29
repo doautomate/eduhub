@@ -228,6 +228,14 @@ describe("auth api client", () => {
         question_text: "First pet?",
       });
     });
+
+    it("throws ApiError with the server detail on failure", async () => {
+      mockFetchResponse(404, { detail: "No account found for that email." }, false);
+      await expect(startRecovery({ email: "unknown@example.com" })).rejects.toMatchObject({
+        status: 404,
+        detail: "No account found for that email.",
+      });
+    });
   });
 
   describe("answerRecovery", () => {
@@ -252,6 +260,16 @@ describe("auth api client", () => {
       await expect(
         resetPassword({ resetToken: "tok", newPassword: "NewPassw0rd1!" }),
       ).resolves.toBeUndefined();
+    });
+
+    it("throws ApiError with the server detail when the reset token is invalid or expired", async () => {
+      mockFetchResponse(401, { detail: "Invalid or expired reset token." }, false);
+      await expect(
+        resetPassword({ resetToken: "bad-tok", newPassword: "NewPassw0rd1!" }),
+      ).rejects.toMatchObject({
+        status: 401,
+        detail: "Invalid or expired reset token.",
+      });
     });
   });
 });

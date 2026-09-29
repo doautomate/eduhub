@@ -8,9 +8,10 @@ import { Home } from "../../../../src/pages/Home";
 import { userService } from "../../../../src/shared/services/userService";
 import type { UserProfile } from "../../../../src/shared/types/user";
 
+const mockNavigate = vi.fn();
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual<typeof import("react-router-dom")>("react-router-dom");
-  return { ...actual, useNavigate: () => vi.fn() };
+  return { ...actual, useNavigate: () => mockNavigate };
 });
 
 const BASE_PROFILE: UserProfile = {
@@ -66,6 +67,32 @@ describe("Home page", () => {
     expect(screen.getByText(/top downloads this week/i)).toBeInTheDocument();
     expect(screen.queryByText(/complete your academic profile/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/my progress dashboard/i)).not.toBeInTheDocument();
+  });
+
+  it("navigates to /register when 'Get Free Access Now' is clicked", async () => {
+    const { fireEvent } = await import("@testing-library/react");
+    renderWithQuery(<Home />);
+
+    fireEvent.click(screen.getByRole("button", { name: /get free access now/i }));
+
+    expect(mockNavigate).toHaveBeenCalledWith("/register");
+  });
+
+  it("scrolls the '#power-ups' section into view when 'Explore Resources' is clicked", async () => {
+    const { fireEvent } = await import("@testing-library/react");
+    const scrollIntoView = vi.fn();
+    const originalGetElementById = document.getElementById.bind(document);
+    vi.spyOn(document, "getElementById").mockImplementation((id: string) => {
+      if (id === "power-ups") {
+        return { scrollIntoView } as unknown as HTMLElement;
+      }
+      return originalGetElementById(id);
+    });
+
+    renderWithQuery(<Home />);
+    fireEvent.click(screen.getByRole("button", { name: /explore resources/i }));
+
+    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth", block: "start" });
   });
 
   it("renders a neutral loading state while academic-profile completeness is still resolving (FR-008)", () => {

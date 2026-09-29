@@ -1,5 +1,10 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
-import { getMe, updateMe, updatePersonalDetails } from "../../../../src/shared/services/api/v1/users";
+import {
+  getMe,
+  updateMe,
+  updateAcademicProfile,
+  updatePersonalDetails,
+} from "../../../../src/shared/services/api/v1/users";
 import { ApiError } from "../../../../src/shared/types/auth";
 
 function mockFetchResponse(status: number, body: unknown, ok = status >= 200 && status < 300) {
@@ -116,6 +121,50 @@ describe("users api client", () => {
       mockFetchResponse(422, { detail: "State/Province must belong to the selected country." }, false);
       await expect(
         updateMe("tok", { country: "US", stateProvince: "KA", pinCode: "560001" }),
+      ).rejects.toBeInstanceOf(ApiError);
+    });
+  });
+
+  describe("updateAcademicProfile", () => {
+    it("PATCHes the academic profile and resolves with the updated profile", async () => {
+      const updated = { ...PROFILE, board: "CBSE", standard: "X" };
+      mockFetchResponse(200, updated);
+
+      await expect(
+        updateAcademicProfile("tok", { board: "CBSE", standard: "X" }),
+      ).resolves.toEqual(updated);
+
+      const [url, init] = vi.mocked(fetch).mock.calls[0];
+      expect(url).toBe("/api/v1/users/me/academic-profile");
+      expect(init?.method).toBe("PATCH");
+      expect(JSON.parse(init?.body as string)).toEqual({
+        board: "CBSE",
+        standard: "X",
+        board_other: null,
+      });
+    });
+
+    it("includes board_other in the payload when provided", async () => {
+      mockFetchResponse(200, PROFILE);
+
+      await updateAcademicProfile("tok", {
+        board: "OTHER",
+        standard: "XII",
+        boardOther: "International Baccalaureate",
+      });
+
+      const [, init] = vi.mocked(fetch).mock.calls[0];
+      expect(JSON.parse(init?.body as string)).toEqual({
+        board: "OTHER",
+        standard: "XII",
+        board_other: "International Baccalaureate",
+      });
+    });
+
+    it("throws ApiError with the server detail on failure", async () => {
+      mockFetchResponse(422, { detail: "Invalid board." }, false);
+      await expect(
+        updateAcademicProfile("tok", { board: "STATE_BOARD", standard: "X" }),
       ).rejects.toBeInstanceOf(ApiError);
     });
   });

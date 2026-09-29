@@ -124,4 +124,80 @@ describe("VerifyOtp page", () => {
 
     await waitFor(() => expect(screen.getByRole("status")).toHaveClass("state-message--success"));
   });
+
+  it("navigates to /login when 'Go to login' is clicked after a successful verification", async () => {
+    vi.spyOn(authService, "verifyOtp").mockResolvedValue(undefined);
+    render(
+      <MemoryRouter
+        initialEntries={[{ pathname: "/verify-otp", state: { userId: "user-1", email: "a@example.com" } }]}
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      >
+        <Routes>
+          <Route path="/verify-otp" element={<VerifyOtp />} />
+          <Route path="/login" element={<p>Login page</p>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(screen.getByLabelText(/verification code/i), { target: { value: "123456" } });
+    fireEvent.click(screen.getByRole("button", { name: /^verify$/i }));
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(/verified/i));
+
+    fireEvent.click(screen.getByRole("button", { name: /go to login/i }));
+
+    expect(screen.getByText("Login page")).toBeInTheDocument();
+  });
+
+  it("shows the server error message on an ApiError without attempts_remaining", async () => {
+    vi.spyOn(authService, "verifyOtp").mockRejectedValue(new ApiError(400, "Code has expired."));
+    renderAt("user-1");
+
+    fireEvent.change(screen.getByLabelText(/verification code/i), { target: { value: "000000" } });
+    fireEvent.click(screen.getByRole("button", { name: /^verify$/i }));
+
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Code has expired."));
+  });
+
+  it("shows a generic error message on a non-ApiError verification failure", async () => {
+    vi.spyOn(authService, "verifyOtp").mockRejectedValue(new Error("boom"));
+    renderAt("user-1");
+
+    fireEvent.change(screen.getByLabelText(/verification code/i), { target: { value: "000000" } });
+    fireEvent.click(screen.getByRole("button", { name: /^verify$/i }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent(/verification failed\. please try again\./i),
+    );
+  });
+
+  it("shows a success message and resets attemptsRemaining on a successful resend", async () => {
+    vi.spyOn(authService, "resendOtp").mockResolvedValue(undefined);
+    renderAt("user-1");
+
+    fireEvent.click(screen.getByTestId("resend-code-button"));
+
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent(/new verification code was sent/i),
+    );
+  });
+
+  it("shows the server error message on an ApiError resend failure (non-429)", async () => {
+    vi.spyOn(authService, "resendOtp").mockRejectedValue(new ApiError(400, "Too many attempts."));
+    renderAt("user-1");
+
+    fireEvent.click(screen.getByTestId("resend-code-button"));
+
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Too many attempts."));
+  });
+
+  it("shows a generic error message on a non-ApiError resend failure", async () => {
+    vi.spyOn(authService, "resendOtp").mockRejectedValue(new Error("boom"));
+    renderAt("user-1");
+
+    fireEvent.click(screen.getByTestId("resend-code-button"));
+
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent(/unable to resend the code\. please try again\./i),
+    );
+  });
 });

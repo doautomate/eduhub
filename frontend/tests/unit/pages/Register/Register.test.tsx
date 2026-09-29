@@ -135,6 +135,85 @@ describe("Register page", () => {
     );
   });
 
+  it("blocks submission with a required-field message when the date of birth is empty", async () => {
+    renderWithProviders(<Register />);
+    fireEvent.change(screen.getByLabelText(/first name/i), { target: { value: "Ada" } });
+    fireEvent.change(screen.getByLabelText(/last name/i), { target: { value: "Lovelace" } });
+    fireEvent.change(screen.getByLabelText(/^email$/i), { target: { value: "new@example.com" } });
+    fireEvent.change(screen.getByLabelText(/mobile number/i), {
+      target: { value: "+15551234567" },
+    });
+    fireEvent.change(screen.getByLabelText(/^password$/i), { target: { value: "Passw0rd1!" } });
+    await selectCountryAndState();
+    fireEvent.change(screen.getByLabelText(/pin\/postal code/i), { target: { value: "560001" } });
+    fireEvent.click(screen.getByRole("button", { name: /register/i }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent(/date of birth is required/i),
+    );
+  });
+
+  it("does not treat an unparseable date of birth as an age violation (defensive guard)", async () => {
+    renderWithProviders(<Register />);
+    await fillRequiredFields();
+    const dob = screen.getByLabelText(/date of birth/i) as HTMLInputElement;
+    // Bypass the native date input's own validation to exercise the
+    // Number.isNaN defensive branch inside computeAge().
+    Object.defineProperty(dob, "value", { value: "not-a-date", writable: true });
+    fireEvent.change(dob, { target: { value: "not-a-date" } });
+    fireEvent.click(screen.getByRole("button", { name: /register/i }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).not.toHaveTextContent(/at least 13 years old/i),
+    );
+  });
+
+  it("blocks submission with a required-field message when no security question is chosen", async () => {
+    renderWithProviders(<Register />);
+    fireEvent.change(screen.getByLabelText(/first name/i), { target: { value: "Ada" } });
+    fireEvent.change(screen.getByLabelText(/last name/i), { target: { value: "Lovelace" } });
+    fireEvent.change(screen.getByLabelText(/^email$/i), { target: { value: "new@example.com" } });
+    fireEvent.change(screen.getByLabelText(/mobile number/i), {
+      target: { value: "+15551234567" },
+    });
+    fireEvent.change(screen.getByLabelText(/date of birth/i), { target: { value: "1990-01-01" } });
+    fireEvent.change(screen.getByLabelText(/^password$/i), { target: { value: "Passw0rd1!" } });
+    await selectCountryAndState();
+    fireEvent.change(screen.getByLabelText(/pin\/postal code/i), { target: { value: "560001" } });
+    fireEvent.click(screen.getByRole("button", { name: /register/i }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent(/please choose a security question/i),
+    );
+  });
+
+  it("computes age correctly when this year's birthday has not yet occurred (age - 1 branch)", async () => {
+    renderWithProviders(<Register />);
+    await fillRequiredFields();
+    const today = new Date();
+    // A birthday that is one day after "today" (in UTC month/day terms), 20
+    // years ago, so the "beforeBirthday" branch decrements the naive year-diff.
+    const future = new Date(Date.UTC(today.getUTCFullYear() - 20, today.getUTCMonth(), today.getUTCDate() + 1));
+    const dob = future.toISOString().slice(0, 10);
+    fireEvent.change(screen.getByLabelText(/date of birth/i), { target: { value: dob } });
+    fireEvent.click(screen.getByRole("button", { name: /register/i }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).not.toHaveTextContent(/at least 13 years old/i),
+    );
+  });
+
+  it("blocks submission with a required-field message when the security answer is blank", async () => {
+    renderWithProviders(<Register />);
+    await fillRequiredFields();
+    fireEvent.change(screen.getByLabelText(/security answer/i), { target: { value: "   " } });
+    fireEvent.click(screen.getByRole("button", { name: /register/i }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent(/security answer cannot be blank/i),
+    );
+  });
+
   it("shows a live password strength indicator as the user types", () => {
     renderWithProviders(<Register />);
     fireEvent.change(screen.getByLabelText(/^password$/i), { target: { value: "weak" } });

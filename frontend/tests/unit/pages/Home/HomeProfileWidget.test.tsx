@@ -136,6 +136,20 @@ describe("HomeProfileWidget (US1)", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Standard is invalid.");
   });
 
+  it("shows a generic error message when the save fails with a non-ApiError", async () => {
+    vi.spyOn(userService, "updateAcademicProfile").mockRejectedValue(new Error("boom"));
+    renderWidget();
+    await screen.findByLabelText("Board");
+
+    fireEvent.change(screen.getByLabelText("Board"), { target: { value: "CBSE" } });
+    fireEvent.change(screen.getByLabelText("Standard"), { target: { value: "VIII" } });
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Failed to save your academic profile. Please try again.",
+    );
+  });
+
   it("re-appears with a fresh empty form after an abandoned edit (FR-009 — verified via remount, since the widget itself holds no persisted dismiss state)", async () => {
     const { unmount } = renderWidget();
     await screen.findByLabelText("Board");

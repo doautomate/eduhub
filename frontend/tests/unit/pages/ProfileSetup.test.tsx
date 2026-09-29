@@ -131,4 +131,39 @@ describe("ProfileSetup page (User Story 1)", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Standard is invalid.");
   });
+
+  it("shows a generic error message when the save fails with a non-ApiError", async () => {
+    vi.spyOn(userService, "updateAcademicProfile").mockRejectedValue(new Error("boom"));
+    renderProfileSetup();
+    await screen.findByLabelText("Board");
+
+    fireEvent.change(screen.getByLabelText("Board"), { target: { value: "CBSE" } });
+    fireEvent.change(screen.getByLabelText("Standard"), { target: { value: "VIII" } });
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Failed to save your academic profile. Please try again.",
+    );
+  });
+
+  it("silently no-ops on submit when there is no access token (defensive guard)", async () => {
+    const updateSpy = vi.spyOn(userService, "updateAcademicProfile");
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <AuthProvider>
+            <ProfileSetup />
+          </AuthProvider>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    await screen.findByLabelText("Board");
+
+    fireEvent.change(screen.getByLabelText("Board"), { target: { value: "CBSE" } });
+    fireEvent.change(screen.getByLabelText("Standard"), { target: { value: "VIII" } });
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+
+    await waitFor(() => expect(updateSpy).not.toHaveBeenCalled());
+  });
 });
