@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: dev-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -24,7 +24,7 @@ jobs:
               run: docker build -t "$BACKEND_IMAGE" -f backend/Dockerfile.dev backend
 
             - name: lint backend code
-              run: docker run --rm -v /var/run/docker.sock:/var/run/docker.sock "$BACKEND_IMAGE" uv run ruff check . --output-format=github
+              run: docker run --rm -v /var/run/docker.sock:/var/run/docker.sock "$BACKEND_IMAGE" uv run ruff check src --output-format=github
 
             - name: "Backend: type-check (mypy --strict)"
               run: docker run --rm -v /var/run/docker.sock:/var/run/docker.sock "$BACKEND_IMAGE" uv run mypy --strict src --show-error-codes
@@ -40,14 +40,14 @@ jobs:
             - name: "Backend: job summary"
               if: always()
               run: |
-                echo "### Backend CI" >> "$GITHUB_STEP_SUMMARY"
+                echo "### Backend DEV" >> "$GITHUB_STEP_SUMMARY"
                 echo "| Step | Result |" >> "$GITHUB_STEP_SUMMARY"
                 echo "|------|--------|" >> "$GITHUB_STEP_SUMMARY"
                 echo "| lint / type-check / tests / security-scan / build | ${{ job.status }} |" >> "$GITHUB_STEP_SUMMARY"
 
             - name: "Backend: cleanup"
               if: always()
-              run: docker image rm "$BACKEND_IMAGE" 2>/dev/null || true
+              run: docker rmi "$BACKEND_IMAGE" 2>/dev/null || true
 
 #    frontend:
 #        name: Frontend Build
