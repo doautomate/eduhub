@@ -14,26 +14,28 @@ jobs:
         name: Backend Build
         runs-on: self-hosted
         timeout-minutes: 15
+        env:
+            BACKEND_IMAGE: backend-dev:${{ github.run_id }}-${{ github.run_attempt }}
         steps:
             - name: Checkout code
               uses: actions/checkout@v3
 
             - name: Build backend container
-              run: docker build -t backend-dev -f backend/Dockerfile.dev backend
+              run: docker build -t "$BACKEND_IMAGE" -f backend/Dockerfile.dev backend
 
             - name: lint backend code
-              run: docker run --rm -v /var/run/docker.sock:/var/run/docker.sock backend-dev uv run ruff check . --output-format=github
+              run: docker run --rm -v /var/run/docker.sock:/var/run/docker.sock "$BACKEND_IMAGE" uv run ruff check . --output-format=github
 
             - name: "Backend: type-check (mypy --strict)"
-              run: docker run --rm -v /var/run/docker.sock:/var/run/docker.sock backend-dev uv run mypy --strict src --show-error-codes
+              run: docker run --rm -v /var/run/docker.sock:/var/run/docker.sock "$BACKEND_IMAGE" uv run mypy --strict src --show-error-codes
 
             - name: "Backend: unit tests (pytest)"
-              run: docker run --rm -v /var/run/docker.sock:/var/run/docker.sock backend-dev uv run pytest --cov -v
+              run: docker run --rm -v /var/run/docker.sock:/var/run/docker.sock "$BACKEND_IMAGE" uv run pytest --cov -v
 
             - name: "Backend: security scan (pip-audit, bandit)"
               run: |
-                docker run --rm -v /var/run/docker.sock:/var/run/docker.sock backend-dev uv run pip-audit
-                docker run --rm -v /var/run/docker.sock:/var/run/docker.sock backend-dev uv run bandit -r src
+                docker run --rm -v /var/run/docker.sock:/var/run/docker.sock "$BACKEND_IMAGE" uv run pip-audit
+                docker run --rm -v /var/run/docker.sock:/var/run/docker.sock "$BACKEND_IMAGE" uv run bandit -r src
 
             - name: "Backend: job summary"
               if: always()
@@ -42,6 +44,10 @@ jobs:
                 echo "| Step | Result |" >> "$GITHUB_STEP_SUMMARY"
                 echo "|------|--------|" >> "$GITHUB_STEP_SUMMARY"
                 echo "| lint / type-check / tests / security-scan / build | ${{ job.status }} |" >> "$GITHUB_STEP_SUMMARY"
+
+            - name: "Backend: cleanup"
+              if: always()
+              run: docker image rm "$BACKEND_IMAGE" 2>/dev/null || true
 
 #    frontend:
 #        name: Frontend Build
