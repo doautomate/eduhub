@@ -37,4 +37,4 @@ jobs:
               run: docker build --target ci -t frontend-ci -f frontend/Dockerfile frontend
 
             - name: lint frontend code
-              run: docker run --rm frontend-ci uv run eslint . --format github
+              run: docker run --rm frontend-ci npm run lint
