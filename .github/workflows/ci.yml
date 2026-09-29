@@ -33,7 +33,7 @@ jobs:
 #              run: docker run --rm backend-ci uv run mypy --strict src --show-error-codes
 
             - name: "Backend: unit tests (pytest)"
-              run: docker run --rm backend-dev uv run pytest --cov -v
+              run: docker run --rm -v /var/run/docker.sock:/var/run/docker.sock backend-dev uv run pytest --cov -v
 
 #            - name: "Backend: security scan (pip-audit, bandit)"
 #              run: |
